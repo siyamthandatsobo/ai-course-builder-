@@ -45,43 +45,23 @@ export default function CourseBuilder() {
       const newCourseId = courseRes.data.id
       setCourseId(newCourseId)
   
-      // Step 2 — Stream lessons one by one
-      const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:8000/ai/generate-course-stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ course_id: newCourseId, num_lessons: numLessons }),
+      // Step 2 — Generate lessons (no streaming for compatibility)
+      const aiRes = await api.post('/ai/generate-course', {
+        course_id: newCourseId,
+        num_lessons: numLessons,
       })
   
-      const reader = response.body!.getReader()
-      const decoder = new TextDecoder()
-      const streamedLessons: Lesson[] = []
-  
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-  
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-  
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6))
-            if (data.done) {
-              setStep('preview')
-              setGenerating(false)
-            } else if (data.lesson) {
-              streamedLessons.push(data.lesson)
-              setLessons([...streamedLessons])
-            }
-          }
-        }
+      // Simulate streaming by revealing lessons one by one
+      const generated = aiRes.data.lessons
+      for (let i = 0; i < generated.length; i++) {
+        await new Promise(resolve => setTimeout(resolve, 400))
+        setLessons(prev => [...prev, generated[i]])
       }
+  
+      setStep('preview')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Generation failed')
+    } finally {
       setGenerating(false)
     }
   }
