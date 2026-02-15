@@ -1,7 +1,7 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from routers import auth
+from routers import auth, courses
 
 app = FastAPI(title="AI Course Builder API", version="1.0.0")
 
@@ -14,7 +14,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
-
+app.include_router(courses.router)
 @app.get("/")
 def root():
     return {"message": "AI Course Builder API is running"}
