@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+/* Light mode background overrides */
+:root:not(.dark) .bg-gray-950 { background-color: #f3f4f6 !important; }
+:root:not(.dark) .bg-gray-900 { background-color: #ffffff !important; }
+:root:not(.dark) .bg-gray-800 { background-color: #f9fafb !important; }
+:root:not(.dark) .border-gray-800 { border-color: #e5e7eb !important; }
+:root:not(.dark) .border-gray-700 { border-color: #d1d5db !important; }
+:root:not(.dark) .bg-gray-950\/80 { background-color: rgba(255,255,255,0.9) !important; }

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { Course } from '../types'
+import ThemeToggle from '../components/ThemeToggle'
 
 function getCourseTheme(topic: string): { emoji: string; gradient: string } {
   const t = topic?.toLowerCase() || ''
@@ -41,6 +42,9 @@ export default function StudentDashboard() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [showCert, setShowCert] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all')
+  
 
   const { data: courses, isLoading } = useQuery({
     queryKey: ['courses'],
@@ -49,8 +53,17 @@ export default function StudentDashboard() {
       return res.data as Course[]
     }
   })
-
+  const filteredCourses = courses?.filter(course => {
+    const matchesSearch = course.title.toLowerCase().includes(search.toLowerCase()) ||
+      course.topic.toLowerCase().includes(search.toLowerCase()) ||
+      course.description?.toLowerCase().includes(search.toLowerCase())
+    const matchesFilter = filter === 'all' || course.difficulty === filter
+    return matchesSearch && matchesFilter
+  })
   const xpPercent = Math.round((XP_CURRENT / XP_NEXT) * 100)
+
+
+ 
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -66,6 +79,8 @@ export default function StudentDashboard() {
             <span className="text-amber-500/60 text-xs">{XP_TITLES[XP_LEVEL]}</span>
           </div>
           <span className="bg-gray-800 text-gray-300 text-xs px-2 py-1 rounded-full border border-gray-700">student</span>
+          <ThemeToggle />
+<button onClick={logout} className="text-gray-400 hover:text-white text-sm">Sign out</button>
           <button onClick={logout} className="text-gray-400 hover:text-white text-sm">Sign out</button>
         </div>
       </nav>
@@ -73,21 +88,20 @@ export default function StudentDashboard() {
       <div className="max-w-6xl mx-auto px-6 py-8">
 
         {/* Hero greeting */}
-        <div className="relative bg-gradient-to-br from-gray-900 via-gray-900 to-amber-950/20 border border-gray-800 rounded-2xl p-8 mb-6 overflow-hidden">
+        <div className="relative bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 rounded-2xl p-8 mb-6 overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-violet-500/5 rounded-full translate-y-1/2 -translate-x-1/4 pointer-events-none"></div>
           <div className="relative">
-            <p className="text-amber-500 text-xs uppercase tracking-widest mb-2">// student dashboard</p>
-            <h1 className="text-3xl font-bold text-white mb-1">
-              Welcome back, <span className="italic text-amber-500">{user?.full_name}</span> 👋
-            </h1>
-            <p className="text-gray-400 text-sm mb-6">You're on a <span className="text-amber-500 font-semibold">🔥 7-day streak</span> — keep it up!</p>
-
+          <p className="text-amber-500 text-xs uppercase tracking-widest mb-2">// student dashboard</p>
+          <h1 className="text-3xl font-bold mb-1 text-gray-800 dark:text-white">
+  Welcome back, <span className="italic text-amber-500">{user?.full_name}</span> 👋
+</h1>
+<p className="text-sm mb-6 text-gray-500 dark:text-gray-300">You're on a <span className="text-amber-500 font-semibold">🔥 7-day streak</span> — keep it up!</p>
             {/* XP Bar */}
             <div className="max-w-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-400">Level {XP_LEVEL} · {XP_TITLES[XP_LEVEL]}</span>
-                <span className="text-xs text-amber-500 font-semibold">{XP_CURRENT} / {XP_NEXT} XP</span>
+              <span className="text-xs text-amber-500">Level {XP_LEVEL} · {XP_TITLES[XP_LEVEL]}</span>
+              <span className="text-xs text-amber-500 font-semibold">{XP_CURRENT} / {XP_NEXT} XP</span>
               </div>
               <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                 <div
@@ -95,8 +109,7 @@ export default function StudentDashboard() {
                   style={{ width: `${xpPercent}%` }}
                 ></div>
               </div>
-              <p className="text-xs text-gray-500 mt-1">{XP_NEXT - XP_CURRENT} XP to Level {XP_LEVEL + 1} · {XP_TITLES[XP_LEVEL + 1]}</p>
-            </div>
+              <p className="text-xs text-amber-500/60 mt-1">{XP_NEXT - XP_CURRENT} XP to Level {XP_LEVEL + 1} · {XP_TITLES[XP_LEVEL + 1]}</p>            </div>
           </div>
         </div>
 
@@ -172,10 +185,50 @@ export default function StudentDashboard() {
         </div>
 
         {/* Courses */}
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-white font-semibold">⚡ Available Courses</h2>
-          <span className="text-xs text-gray-400">{courses?.length || 0} courses</span>
-        </div>
+        <div className="mb-4">
+  <div className="flex items-center justify-between mb-3">
+    <h2 className="text-white font-semibold">⚡ Available Courses</h2>
+    <span className="text-xs text-gray-400">
+      {filteredCourses?.length || 0} of {courses?.length || 0} courses
+    </span>
+  </div>
+  <div className="flex gap-3 flex-wrap">
+    {/* Search bar */}
+    <div className="flex-1 min-w-48 relative">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search courses..."
+        className="w-full bg-gray-900 border border-gray-800 rounded-lg pl-9 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors placeholder-gray-500"
+      />
+      {search && (
+        <button
+          onClick={() => setSearch('')}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+    {/* Filter pills */}
+    <div className="flex gap-2">
+      {(['all', 'beginner', 'intermediate', 'advanced'] as const).map(level => (
+        <button
+          key={level}
+          onClick={() => setFilter(level)}
+          className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors capitalize ${
+            filter === level
+              ? 'bg-amber-500 text-gray-950'
+              : 'bg-gray-900 border border-gray-800 text-gray-400 hover:border-gray-700 hover:text-white'
+          }`}
+        >
+          {level === 'all' ? '✨ All' : level}
+        </button>
+      ))}
+    </div>
+  </div>
+</div>
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -183,15 +236,22 @@ export default function StudentDashboard() {
               <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4 animate-pulse h-48"></div>
             ))}
           </div>
-        ) : courses?.length === 0 ? (
+        ) : filteredCourses?.length === 0 ? (
           <div className="bg-gray-900 border border-gray-800 border-dashed rounded-xl p-12 text-center">
             <div className="text-4xl mb-4">📚</div>
-            <h3 className="text-white font-semibold mb-2">No courses yet</h3>
-            <p className="text-gray-400 text-sm">Check back soon for new courses!</p>
+            <h3 className="text-white font-semibold mb-2">
+  {search || filter !== 'all' ? 'No courses match your search' : 'No courses yet'}
+</h3>
+<p className="text-gray-400 text-sm">
+  {search || filter !== 'all'
+    ? <button onClick={() => { setSearch(''); setFilter('all') }} className="text-amber-500 hover:text-amber-400">Clear filters</button>
+    : 'Check back soon for new courses!'
+  }
+</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {courses?.map(course => (
+            {filteredCourses?.map(course => (
               <div key={course.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all hover:-translate-y-0.5 cursor-pointer group">
                 <div className={`h-24 bg-gradient-to-br ${getCourseTheme(course.topic).gradient} flex items-center justify-center text-4xl`}>
                   {getCourseTheme(course.topic).emoji}
@@ -226,22 +286,21 @@ export default function StudentDashboard() {
         )}
 
         {/* Certificate preview */}
-        <div className="bg-gradient-to-br from-gray-900 to-amber-950/10 border border-amber-500/20 rounded-xl p-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center text-2xl">
-              🎓
-            </div>
-            <div>
-              <h3 className="text-white font-semibold">Earn your certificate</h3>
-              <p className="text-gray-400 text-sm">Complete a course 100% to unlock your shareable certificate.</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowCert(true)}
-            className="bg-amber-500 hover:bg-amber-400 text-gray-950 text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex-shrink-0">
-            Preview →
-          </button>
-        </div>
+        <div className="bg-gray-900 border border-amber-500/30 rounded-xl p-6 flex items-center justify-between">  <div className="flex items-center gap-4">
+    <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center text-2xl">
+      🎓
+    </div>
+    <div>
+    <h3 className="text-amber-500 font-semibold">Earn your certificate</h3>
+    <p className="text-amber-500/70 text-sm">Complete a course 100% to unlock your shareable certificate.</p>
+    </div>
+  </div>
+  <button
+    onClick={() => setShowCert(true)}
+    className="bg-amber-500 hover:bg-amber-400 text-gray-950 text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex-shrink-0">
+    Preview →
+  </button>
+</div>
       </div>
 
       {/* Certificate modal */}
