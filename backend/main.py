@@ -10,7 +10,7 @@ app.add_middleware(
     allow_origins=[
         os.getenv("FRONTEND_URL", "http://localhost:5173"),
         "http://localhost:5173",
-        "https://learnify-1fq68ryt4-siyamthandas-projects.vercel.app",
+        "https://learnify-siyamthandas-projects.vercel.app/",
     ],
     allow_credentials=True,
     allow_methods=["*"],
