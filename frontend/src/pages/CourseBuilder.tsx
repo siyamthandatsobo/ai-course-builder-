@@ -32,7 +32,10 @@ export default function CourseBuilder() {
     }
     setGenerating(true)
     setError('')
+    setLessons([])
+  
     try {
+      // Step 1 — Create the course
       const courseRes = await api.post('/courses/', {
         title: form.title,
         description: form.description,
@@ -41,15 +44,44 @@ export default function CourseBuilder() {
       })
       const newCourseId = courseRes.data.id
       setCourseId(newCourseId)
-      const aiRes = await api.post('/ai/generate-course', {
-        course_id: newCourseId,
-        num_lessons: numLessons,
+  
+      // Step 2 — Stream lessons one by one
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://localhost:8000/ai/generate-course-stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ course_id: newCourseId, num_lessons: numLessons }),
       })
-      setLessons(aiRes.data.lessons)
-      setStep('preview')
+  
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      const streamedLessons: Lesson[] = []
+  
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+  
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+  
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6))
+            if (data.done) {
+              setStep('preview')
+              setGenerating(false)
+            } else if (data.lesson) {
+              streamedLessons.push(data.lesson)
+              setLessons([...streamedLessons])
+            }
+          }
+        }
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Generation failed')
-    } finally {
       setGenerating(false)
     }
   }
@@ -90,78 +122,130 @@ export default function CourseBuilder() {
           <p className="text-gray-400 text-sm mt-2">Describe your topic and AI will create a full curriculum with lesson content.</p>
         </div>
 
-        {step === 'form' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-6">
-                <span className="text-amber-500 text-sm">✨ GPT-4o · JSON structured output</span>
-              </div>
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg p-3 mb-4">{error}</div>
-              )}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Course Title</label>
-                  <input value={form.title} onChange={e => setForm({...form, title: e.target.value})}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500"
-                    placeholder="e.g. Intro to Machine Learning" />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Topic</label>
-                  <input value={form.topic} onChange={e => setForm({...form, topic: e.target.value})}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500"
-                    placeholder="e.g. Machine Learning, Python, React" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Difficulty</label>
-                    <select value={form.difficulty} onChange={e => setForm({...form, difficulty: e.target.value})}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
-                      <option value="beginner">Beginner</option>
-                      <option value="intermediate">Intermediate</option>
-                      <option value="advanced">Advanced</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Lessons</label>
-                    <select value={numLessons} onChange={e => setNumLessons(Number(e.target.value))}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500">
-                      <option value={4}>4 lessons</option>
-                      <option value={6}>6 lessons</option>
-                      <option value={8}>8 lessons</option>
-                      <option value={10}>10 lessons</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Description (optional)</label>
-                  <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 resize-none"
-                    rows={3} placeholder="Brief description of the course..." />
-                </div>
-                <button onClick={handleGenerate} disabled={generating}
-                  className="w-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-semibold rounded-lg py-3 text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                  {generating ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                      </svg>
-                      Generating course...
-                    </>
-                  ) : '✨ Generate course'}
-                </button>
-              </div>
-            </div>
-            <div className="bg-gray-900 border border-gray-800 border-dashed rounded-xl p-6 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-4xl mb-4">✨</div>
-                <h3 className="text-white font-semibold mb-2">Your course will appear here</h3>
-                <p className="text-gray-400 text-sm">Fill in the form and click Generate</p>
-              </div>
-            </div>
+        {step === 'form' || generating ? (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {/* Form */}
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-6">
+        <span className="text-amber-500 text-sm">✨ GPT-4o · JSON structured output</span>
+      </div>
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg p-3 mb-4">{error}</div>
+      )}
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Course Title</label>
+          <input value={form.title} onChange={e => setForm({...form, title: e.target.value})}
+            disabled={generating}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 disabled:opacity-50"
+            placeholder="e.g. Intro to Machine Learning" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Topic</label>
+          <input value={form.topic} onChange={e => setForm({...form, topic: e.target.value})}
+            disabled={generating}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 disabled:opacity-50"
+            placeholder="e.g. Machine Learning, Python, React" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Difficulty</label>
+            <select value={form.difficulty} onChange={e => setForm({...form, difficulty: e.target.value})}
+              disabled={generating}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 disabled:opacity-50">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
           </div>
-        ) : (
+          <div>
+            <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Lessons</label>
+            <select value={numLessons} onChange={e => setNumLessons(Number(e.target.value))}
+              disabled={generating}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 disabled:opacity-50">
+              <option value={4}>4 lessons</option>
+              <option value={6}>6 lessons</option>
+              <option value={8}>8 lessons</option>
+              <option value={10}>10 lessons</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Description (optional)</label>
+          <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
+            disabled={generating}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 resize-none disabled:opacity-50"
+            rows={3} placeholder="Brief description of the course..." />
+        </div>
+        <button onClick={handleGenerate} disabled={generating}
+          className="w-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-semibold rounded-lg py-3 text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+          {generating ? (
+            <>
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              Generating...
+            </>
+          ) : '✨ Generate course'}
+        </button>
+      </div>
+    </div>
+
+    {/* Live streaming preview */}
+    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+        <h2 className="text-white font-semibold">
+          {generating ? (
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+              AI is generating...
+            </span>
+          ) : '📚 Curriculum preview'}
+        </h2>
+        {lessons.length > 0 && (
+          <span className="bg-green-500/10 text-green-400 text-xs px-2 py-1 rounded border border-green-500/20">
+            {lessons.length} lessons
+          </span>
+        )}
+      </div>
+      {lessons.length === 0 && !generating ? (
+        <div className="flex items-center justify-center h-48">
+          <div className="text-center">
+            <div className="text-4xl mb-4">✨</div>
+            <p className="text-gray-400 text-sm">Your course will appear here</p>
+          </div>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-800">
+          {lessons.map((lesson, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3 animate-fadeIn">
+              <div className="w-6 h-6 rounded-md bg-amber-500 flex items-center justify-center text-xs font-bold text-gray-950 flex-shrink-0">
+                {i + 1}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-white">{lesson.title}</div>
+                <div className="text-xs text-gray-400">{lesson.duration}</div>
+              </div>
+              <span className="text-green-400 text-xs">✓</span>
+            </div>
+          ))}
+          {generating && (
+            <div className="flex items-center gap-3 px-4 py-3 opacity-50">
+              <div className="w-6 h-6 rounded-md bg-gray-800 flex items-center justify-center flex-shrink-0">
+                <svg className="animate-spin h-3 w-3 text-amber-500" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+              </div>
+              <span className="text-sm text-gray-400">Generating next lesson<span className="animate-pulse">...</span></span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
+) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
               <div className="p-4 border-b border-gray-800 flex items-center justify-between">
