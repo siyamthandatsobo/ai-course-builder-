@@ -7,6 +7,7 @@ import StudentDashboard from './pages/StudentDashboard'
 import TeacherDashboard from './pages/TeacherDashboard'
 import CourseBuilder from './pages/CourseBuilder'
 import QuizPage from './pages/QuizPage'
+import QuizHistory from './pages/QuizHistory'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -30,6 +31,7 @@ export default function App() {
       <Route path="/dashboard" element={<PrivateRoute><DashboardRoute /></PrivateRoute>} />
       <Route path="/builder" element={<PrivateRoute><CourseBuilder /></PrivateRoute>} />
       <Route path="/quiz/:quizId" element={<PrivateRoute><QuizPage /></PrivateRoute>} />
+      <Route path="/quiz-history" element={<PrivateRoute><QuizHistory /></PrivateRoute>} />
     </Routes>
   )
 }

@@ -80,6 +80,9 @@ export default function StudentDashboard() {
           </div>
           <span className="bg-gray-800 text-gray-300 text-xs px-2 py-1 rounded-full border border-gray-700">student</span>
           <ThemeToggle />
+          <button onClick={() => navigate('/quiz-history')} className="text-gray-400 hover:text-white text-sm transition-colors">
+  📝 Quiz History
+</button>
 <button onClick={logout} className="text-gray-400 hover:text-white text-sm">Sign out</button>
           <button onClick={logout} className="text-gray-400 hover:text-white text-sm">Sign out</button>
         </div>
