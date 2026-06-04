@@ -7,3 +7,4 @@ interface ImportMetaEnv {
   interface ImportMeta {
     readonly env: ImportMetaEnv
   }
+VITE_API_URL=https://coursebuilderai.fly.dev
